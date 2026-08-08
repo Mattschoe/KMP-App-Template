@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Danish. Keys must match values/strings.xml exactly — see StringResourceCompletenessTest. -->
+<resources>
+    <string name="app_name">App Template</string>
+
+    <string name="action_confirm">Bekræft</string>
+    <string name="action_cancel">Annuller</string>
+
+    <string name="a11y_add_item">Tilføj element</string>
+    <string name="a11y_delete_item">Slet element</string>
+    <string name="a11y_open_settings">Åbn indstillinger</string>
+    <string name="a11y_navigate_back">Gå tilbage</string>
+
+    <string name="home_title">Elementer</string>
+    <string name="home_empty">Ingen elementer endnu. Tryk på + for at tilføje et.</string>
+    <string name="home_add_dialog_title">Nyt element</string>
+    <string name="home_add_dialog_label">Navn</string>
+
+    <string name="settings_title">Indstillinger</string>
+    <string name="settings_theme_title">Tema</string>
+    <string name="settings_theme_system">Følg systemet</string>
+    <string name="settings_theme_light">Lyst</string>
+    <string name="settings_theme_dark">Mørkt</string>
+
+    <string name="error_generic">Noget gik galt. Prøv igen.</string>
+    <string name="error_item_not_found">Elementet findes ikke længere.</string>
+    <string name="error_write_failed">Din ændring kunne ikke gemmes.</string>
+</resources>

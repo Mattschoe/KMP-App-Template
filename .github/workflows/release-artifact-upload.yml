@@ -1,0 +1,66 @@
+name: Build and Attach Release Artifacts
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  # Android — reuses Mattschoe/action-release-apk. Every path it defaults to
+  # assumes a module called `:app`, so all three are overridden for `:androidApp`.
+  android:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: Mattschoe/action-release-apk@v1
+        with:
+          gradle-task:       ':androidApp:assembleRelease'
+          apk-path:          'androidApp/build/outputs/apk/release/androidApp-release.apk'
+          keystore-path:     'androidApp/keystore.jks'
+          keystore-base64:   ${{ secrets.KEYSTORE_BASE64 }}
+          keystore-password: ${{ secrets.KEYSTORE_PASSWORD }}
+          key-alias:         ${{ secrets.KEY_ALIAS }}
+          key-password:      ${{ secrets.KEY_PASSWORD }}
+
+  # iOS — must run on macOS; Kotlin/Native cannot link Apple targets on Linux.
+  # Builds UNSIGNED by default so it needs zero extra secrets and still catches
+  # iOS breakage on every release. See README "CI/CD" for the signed .ipa path.
+  ios:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Build shared framework
+        run: ./gradlew :shared:linkReleaseFrameworkIosArm64
+
+      - name: Archive iOS app (unsigned)
+        run: |
+          xcodebuild \
+            -project iosApp/iosApp.xcodeproj \
+            -scheme iosApp \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath "$RUNNER_TEMP/AppTemplate.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            archive
+
+      - name: Zip archive
+        run: |
+          cd "$RUNNER_TEMP"
+          zip -r "$GITHUB_WORKSPACE/ios-archive.zip" AppTemplate.xcarchive
+
+      - name: Attach to release
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ github.token }}
+          files: ios-archive.zip

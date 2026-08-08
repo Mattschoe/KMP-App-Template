@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Default (English) strings. This is the source of truth: every values-XX/strings.xml
+  must contain exactly these keys, with matching %n$s placeholders.
+  StringResourceCompletenessTest enforces that.
+
+  Key convention: snake_case with a semantic prefix.
+    a11y_*      accessibility / content descriptions
+    action_*    button and menu labels reused across pages
+    error_*     user-facing error messages (see domain/Error.kt)
+    <page>_*    strings belonging to one page
+-->
+<resources>
+    <string name="app_name">App Template</string>
+
+    <string name="action_confirm">Confirm</string>
+    <string name="action_cancel">Cancel</string>
+
+    <string name="a11y_add_item">Add item</string>
+    <string name="a11y_delete_item">Delete item</string>
+    <string name="a11y_open_settings">Open settings</string>
+    <string name="a11y_navigate_back">Navigate back</string>
+
+    <string name="home_title">Items</string>
+    <string name="home_empty">No items yet. Tap + to add one.</string>
+    <string name="home_add_dialog_title">New item</string>
+    <string name="home_add_dialog_label">Name</string>
+
+    <string name="settings_title">Settings</string>
+    <string name="settings_theme_title">Theme</string>
+    <string name="settings_theme_system">Follow system</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+
+    <string name="error_generic">Something went wrong. Please try again.</string>
+    <string name="error_item_not_found">That item no longer exists.</string>
+    <string name="error_write_failed">Could not save your change.</string>
+</resources>
