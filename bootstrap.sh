@@ -3,7 +3,8 @@
 # Turns this template into a real project: rewrites the package name, the Gradle
 # project name, the Android applicationId, the iOS bundle identifier and the
 # Compose-resources package, moves the source directories to match, optionally
-# generates locale files, deletes itself and commits the result.
+# generates locale files, replaces this template's README with an empty one,
+# deletes itself and commits the result.
 #
 # The existing git history, branch and remote are left alone — bootstrapping is
 # recorded as a single "chore: run bootstrap.sh" commit on top of whatever the
@@ -205,8 +206,8 @@ done
 # applicationId is the one identifier that may differ from the Kotlin package.
 sed -i "s|applicationId = \"${PACKAGE}\"|applicationId = \"${APP_ID}\"|" androidApp/build.gradle.kts
 
-# Doc placeholders.
-for doc in AGENTS.md CLAUDE.md README.md; do
+# Doc placeholders. README.md is not listed: it is replaced wholesale below.
+for doc in AGENTS.md CLAUDE.md; do
     [[ -f "$doc" ]] || continue
     sed -i -e "s|{{PACKAGE_PATH}}|${PACKAGE_PATH}|g" \
            -e "s|{{PACKAGE}}|${PACKAGE}|g" \
@@ -237,6 +238,11 @@ fi
 
 # AGENTS.md is a copy of CLAUDE.md so the two can never drift.
 [[ -f CLAUDE.md ]] && cp CLAUDE.md AGENTS.md
+
+# The template's own README describes the template, which is noise in a real
+# project — throw it away and start from an empty one. printf rather than a
+# heredoc so a "$" or a backtick in the display name survives verbatim.
+printf '# %s\n' "$DISPLAY_NAME" > README.md
 
 cat > CHANGELOG.md <<EOF
 # Changelog
@@ -271,8 +277,9 @@ echo
 echo "Done. Next:"
 echo "  1. ./gradlew :androidApp:assembleDebug"
 echo "  2. ./gradlew :desktopApp:run"
-echo "  3. fill in the {{TODO}} sections of AGENTS.md and README.md"
-echo "  4. add the CI secrets listed in README.md → CI/CD"
+echo "  3. fill in the {{TODO}} sections of AGENTS.md, and write README.md"
+echo "  4. add the CI secrets: RELEASE_PLEASE_TOKEN, KEYSTORE_BASE64,"
+echo "     KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD"
 if [[ $COMMITTED == 1 ]]; then
     echo "  5. review with 'git show', then 'git push'"
 else

@@ -21,7 +21,7 @@ cd my-app
 ```
 
 `bootstrap.sh` rewrites the Kotlin package, the Gradle project name, the Android `applicationId`, the iOS bundle identifier and the Compose-resources package, 
-moves the source directories to match, then deletes itself and commits everything as `chore: run bootstrap.sh`.
+moves the source directories to match, replaces this README with an empty one, then deletes itself and commits everything as `chore: run bootstrap.sh`.
 
 |---|---|---|
 | `--package com.foo.bar` | The Kotlin package | Y |
