@@ -71,7 +71,7 @@ Required repository secrets:
 
 | Secret | Used for |
 |---|---|
-| `RELEASE_PLEASE_TOKEN` | a PAT so release-please's PR triggers other workflows |
+| `RELEASE_PLEASE_TOKEN` | a PAT so release-please's PR triggers other workflows. Needs R/W permission to: Contents, Workflows, Pull requests and Issues |
 | `KEYSTORE_BASE64` | base64 of your release keystore (`base64 -w0 keystore.jks`) |
 | `KEYSTORE_PASSWORD` | keystore password |
 | `KEY_ALIAS` | signing key alias |
