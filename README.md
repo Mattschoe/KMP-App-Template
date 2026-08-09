@@ -21,16 +21,15 @@ cd my-app
 ```
 
 `bootstrap.sh` rewrites the Kotlin package, the Gradle project name, the Android `applicationId`, the iOS bundle identifier and the Compose-resources package, 
-moves the source directories to match, then deletes itself and starts a fresh git history.
+moves the source directories to match, then deletes itself and commits everything as `chore: run bootstrap.sh`.
 
-| Flag | Effect | Required? |
 |---|---|---|
 | `--package com.foo.bar` | The Kotlin package | Y |
 | `--name "My App"` | Display name, also becomes `rootProject.name` (stripped to `MyApp`) | Y |
 | `--app-id com.foo.bar` | Android `applicationId`, if it differs from the package | N | 
 | `--locales da,de,fr` | creates `values-XX/strings.xml` seeded from the default file | N |
 | `--no-ios` / `--no-desktop` | drops that platform entirely | N |
-| `--keep-git` | keeps the template's git history | N |
+| `--no-commit` | leaves the changes in the working tree instead of committing them | N |
 | `--dry-run` | prints what would change and exits | N |
 
 ## Tech Stack

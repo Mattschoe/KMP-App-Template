@@ -3,7 +3,11 @@
 # Turns this template into a real project: rewrites the package name, the Gradle
 # project name, the Android applicationId, the iOS bundle identifier and the
 # Compose-resources package, moves the source directories to match, optionally
-# generates locale files, then deletes itself.
+# generates locale files, deletes itself and commits the result.
+#
+# The existing git history, branch and remote are left alone — bootstrapping is
+# recorded as a single "chore: run bootstrap.sh" commit on top of whatever the
+# repository already has. Nothing is pushed.
 #
 # Usage:
 #   ./bootstrap.sh --package com.foo.bar --name "My App"
@@ -22,15 +26,18 @@ PACKAGE=""
 DISPLAY_NAME=""
 APP_ID=""
 LOCALES=""
-KEEP_GIT=0
+COMMIT=1
 WITH_IOS=1
 WITH_DESKTOP=1
 DRY_RUN=0
 
+COMMIT_SUBJECT="chore: run bootstrap.sh"
+
 die() { echo "error: $*" >&2; exit 1; }
 
+# Prints the header comment block, so the usage text can never drift from it.
 usage() {
-    sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
+    awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"
     exit "${1:-0}"
 }
 
@@ -42,7 +49,7 @@ while [[ $# -gt 0 ]]; do
         --locales)   LOCALES="${2:-}"; shift 2 ;;
         --no-ios)     WITH_IOS=0; shift ;;
         --no-desktop) WITH_DESKTOP=0; shift ;;
-        --keep-git)   KEEP_GIT=1; shift ;;
+        --no-commit)  COMMIT=0; shift ;;
         --dry-run)    DRY_RUN=1; shift ;;
         -h|--help)    usage 0 ;;
         *) die "unknown argument: $1 (try --help)" ;;
@@ -72,6 +79,23 @@ APP_ID="${APP_ID:-$PACKAGE}"
 PACKAGE_PATH="${PACKAGE//.//}"
 TEMPLATE_PACKAGE_PATH="${TEMPLATE_PACKAGE//.//}"
 
+# ------------------------------------------------------------- git preflight --
+
+# Decided up front so --dry-run can report it, and so a missing git or a dirty
+# tree is mentioned before anything on disk has been touched.
+GIT_COMMIT=0
+GIT_NOTE=""
+
+if [[ $COMMIT == 1 ]]; then
+    if ! command -v git >/dev/null 2>&1; then
+        GIT_NOTE="git not found"
+    elif ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        GIT_NOTE="not a git repository"
+    else
+        GIT_COMMIT=1
+    fi
+fi
+
 echo "  package        : $TEMPLATE_PACKAGE -> $PACKAGE"
 echo "  applicationId  : $APP_ID"
 echo "  rootProject    : $TEMPLATE_ROOT_NAME -> $ROOT_NAME"
@@ -81,7 +105,23 @@ echo "  database file  : $DB_NAME"
 [[ -n "$LOCALES" ]] && echo "  locales        : $LOCALES"
 [[ $WITH_IOS     == 0 ]] && echo "  iOS            : REMOVED"
 [[ $WITH_DESKTOP == 0 ]] && echo "  desktop        : REMOVED"
+
+if [[ $GIT_COMMIT == 1 ]]; then
+    echo "  git            : commit \"$COMMIT_SUBJECT\" (no push)"
+else
+    echo "  git            : leaving the changes uncommitted${GIT_NOTE:+ ($GIT_NOTE)}"
+fi
 echo
+
+# Everything staged by the commit below is whatever is in the tree at that
+# point, so pre-existing edits would be folded in. Say so while it is still
+# possible to abort.
+if [[ $GIT_COMMIT == 1 && -n "$(git status --porcelain)" ]]; then
+    echo "warning: the working tree is not clean — the changes below will be"
+    echo "         included in the bootstrap commit:"
+    git status --short | sed 's/^/           /'
+    echo
+fi
 
 if [[ $DRY_RUN == 1 ]]; then
     echo "(dry run — nothing written)"
@@ -165,14 +205,8 @@ done
 # applicationId is the one identifier that may differ from the Kotlin package.
 sed -i "s|applicationId = \"${PACKAGE}\"|applicationId = \"${APP_ID}\"|" androidApp/build.gradle.kts
 
-# Swap the template's own README (which explains how to use the template) for a
-# README about the project being created.
-if [[ -f docs/PROJECT_README.md ]]; then
-    mv docs/PROJECT_README.md README.md
-fi
-
 # Doc placeholders.
-for doc in CLAUDE.md README.md; do
+for doc in AGENTS.md CLAUDE.md README.md; do
     [[ -f "$doc" ]] || continue
     sed -i -e "s|{{PACKAGE_PATH}}|${PACKAGE_PATH}|g" \
            -e "s|{{PACKAGE}}|${PACKAGE}|g" \
@@ -209,19 +243,38 @@ cat > CHANGELOG.md <<EOF
 EOF
 
 rm -f bootstrap.sh
-rm -rf docs/optional-ci/.keep
 
-if [[ $KEEP_GIT == 0 ]]; then
-    rm -rf .git
-    git init -q
+# ------------------------------------------------------------------ committing --
+
+# The script has just deleted itself; on Linux the running shell keeps reading
+# from the open inode, so the rest of this file still executes. "git add -A"
+# stages that deletion along with everything else.
+COMMITTED=0
+if [[ $GIT_COMMIT == 1 ]]; then
+    body="package $PACKAGE, rootProject $ROOT_NAME, applicationId $APP_ID"
+    [[ $WITH_IOS     == 0 ]] && body="$body, iOS removed"
+    [[ $WITH_DESKTOP == 0 ]] && body="$body, desktop removed"
+
     git add -A
-    git commit -q -m "chore: initial commit from kmp-app-template"
-    echo "Initialised a fresh git repository."
+    if git diff --cached --quiet; then
+        echo "Nothing to commit — the tree already matched the requested settings."
+    elif git commit -q -m "$COMMIT_SUBJECT" -m "$body"; then
+        COMMITTED=1
+        branch="$(git branch --show-current)"
+        echo "Committed as \"$COMMIT_SUBJECT\"${branch:+ on $branch}. Not pushed."
+    else
+        echo "warning: git commit failed — the changes are staged, commit them yourself." >&2
+    fi
 fi
 
 echo
 echo "Done. Next:"
 echo "  1. ./gradlew :androidApp:assembleDebug"
 echo "  2. ./gradlew :desktopApp:run"
-echo "  3. fill in the {{TODO}} sections of CLAUDE.md and README.md"
+echo "  3. fill in the {{TODO}} sections of AGENTS.md and README.md"
 echo "  4. add the CI secrets listed in README.md → CI/CD"
+if [[ $COMMITTED == 1 ]]; then
+    echo "  5. review with 'git show', then 'git push'"
+else
+    echo "  5. review the changes, then commit them"
+fi
