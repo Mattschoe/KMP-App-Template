@@ -1,41 +1,24 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance when working with code in this repository.
 
 ## Planning & Exploration
 
-When planning a task, use the file map and architecture section in this CLAUDE.md to identify the specific files relevant to the task, then read those files directly. The file map is a directory — use it to go straight to the 2-3 files that matter instead of exploring 8-10 defensively.
+When planning a task, use the file map and architecture section in this CLAUDE.md to identify the specific files relevant to the task, 
+then read those files directly. The file map is a directory — use it to go straight to the 2-3 files that matter instead of exploring 8-10 defensively.
 
-This file describes the *shape* of the codebase — where things live and how they fit together — not an index of every file. Rule of thumb: if a file name tells you what it does, just `ls` and open it. Files whose names *don't* tell you that are annotated below.
+This file describes the *shape* of the codebase — where things live and how they fit together — not an index of every file. 
+Rule of thumb: if a file name tells you what it does, just `ls` and open it. Files whose names *don't* tell you that are annotated below.
 
-- **Language**: all code, comments and commit messages in English. User-facing strings live in `shared/src/commonMain/composeResources/values/strings.xml` and are referenced as `Res.string.*` — never hardcode display text in a composable.
+- **Language**: User-facing strings live in `shared/src/commonMain/composeResources/values/strings.xml` and are referenced as `Res.string.*` — never hardcode display text in a composable.
 - **Translations**: only ever edit `values/strings.xml`. Locale files are translations of it; adding a key there without adding it to every locale breaks `StringResourceCompletenessTest`.
-- **Commits**: Conventional Commits (`feat:`, `fix:`, `chore:`, with an optional scope like `fix(home):`). release-please builds the changelog and the version from these, so the prefix is not cosmetic.
+- **Commits**: Conventional Commits (`feat:`, `fix:`, `chore:`, with an optional scope like `fix(home):`). release-please builds the changelog and the version from these, so the prefix is not cosmetic. Do not include a body of text in a commit message. Only ever single line commits.
 
 ## Build & Development Commands
 
-```bash
-# Android
-./gradlew :androidApp:assembleDebug          # build debug APK
-./gradlew :androidApp:installDebug           # build + install on the connected device
-./gradlew :androidApp:assembleRelease        # minified release build (unsigned without a keystore)
-
-# Desktop
-./gradlew :desktopApp:run                    # launch the desktop app
-
-# Tests
-./gradlew :shared:jvmTest                    # JVM unit tests (incl. the string resource checks)
-./gradlew :shared:jvmTest --tests "*StringResourceCompletenessTest"   # a single test class
-./gradlew build                              # everything, including release + all tests
-
-./gradlew clean
-```
-
-**iOS only builds on macOS.** Kotlin/Native cannot link Apple targets on Linux or Windows, so `shared/build.gradle.kts` declares the iOS targets only when the host is a Mac. On any other host the iOS source sets are simply absent and every command above still works — which also means iOS breakage will not surface locally. CI covers it: the `ios` job in `release-artifact-upload.yml` runs on a macOS runner.
-
 ## Architecture
 
-Kotlin Multiplatform with Compose Multiplatform UI. One shared module (`shared/`) holds essentially the whole app — UI, domain and data; the three app modules (`androidApp/`, `desktopApp/`, `iosApp/`) are thin platform shells that build an `AppContainer` and hand it to `App()`.
+Kotlin Multiplatform with Compose Multiplatform UI. 
+One shared module (`shared/`) holds essentially the whole app — UI, domain and data; 
+the three app modules (`androidApp/`, `desktopApp/`, `iosApp/`) are thin platform shells that build an `AppContainer` and hand it to `App()`.
 
 - **`domain/`** — pure Kotlin. Models, repository *interfaces*, service interfaces, and the `Result`/`Error` types. Knows nothing about Room, the network, or any platform type.
 - **`data/`** — implementations. `data/local/` is Room + DataStore; `data/repositories/` holds the implementations, named after their backing store (`OfflineItemRepository` = Room-backed).
@@ -43,12 +26,11 @@ Kotlin Multiplatform with Compose Multiplatform UI. One shared module (`shared/`
 
 **Key architectural decisions:**
 
-- **Manual dependency injection — no Hilt/Dagger/Koin.** `AppContainer` is constructed once per platform in the platform entry point and threaded down explicitly. Anything expensive sits behind `by lazy`.
-- **ViewModels are constructed in the nav host**, inside each `composable<Route>` block, from the `AppContainer`. There is no `ViewModelProvider.Factory` and no service locator — a ViewModel receives exactly the dependencies it needs as constructor parameters.
+- **Manual dependency injection** `AppContainer` is constructed once per platform in the platform entry point and threaded down explicitly.
+- **ViewModels are constructed in the nav host**, inside each `composable<Route>` block, from the `AppContainer`.
 - **Reactive state.** Repositories expose `Flow`; ViewModels convert with `stateIn(SharingStarted.WhileSubscribed(5000))`; pages read with `collectAsStateWithLifecycle()`.
 - **Type-safe navigation.** Routes are `@Serializable` types in a sealed class, not strings. Arguments are read with `backStackEntry.toRoute<T>()`.
 - **Fallible operations return `Result<D, E>`,** they do not throw. Repositories catch storage exceptions and map them to a `DataError`. Read streams stay unwrapped.
-- **Room migrations are mandatory.** Bumping `AppDatabase.version` requires a migration; schemas are exported to `shared/schemas/` so the diff is reviewable. Destructive fallback is not configured anywhere, deliberately.
 
 ## {{TODO: domain deep-dive}}
 
@@ -124,16 +106,6 @@ All paths relative to `shared/src/commonMain/kotlin/{{PACKAGE_PATH}}/` unless st
 ## Key Conventions
 
 - **ViewModel state**: expose `StateFlow`, built with `stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), initialValue)`. Read it in composables with `collectAsStateWithLifecycle()`.
-- **Constructor parameters**: dependencies a class only uses internally take a leading underscore and stay `private` (`_itemDao`, `_database`). Anything callers need is a plain public `val`.
-- **Error handling**: repositories return `Result`, never throw across a layer boundary. ViewModels surface failures as state the page renders; they do not log and swallow.
+- **Error handling**: services return `Result`, never throw across a layer boundary. ViewModels surface failures as state the page renders.
 - **Pages** take `navController` and `viewModel` as named parameters and hold no state beyond pure UI state (dialog open/closed).
-- **Strings**: always `stringResource(Res.string.x)`. Accessibility strings are prefixed `a11y_` and every icon-only control needs one.
-- **UI verification**: after any UI change that affects what the user sees, run `/android-verify` before reporting the task done.
-
-## SDK Targets & Dependencies
-
-- **minSdk 24, targetSdk 37, compileSdk 37**; Java 11; AGP 9.2.1; Gradle 9.5.1; Kotlin 2.4.10.
-- **Compose Multiplatform 1.11.1**, Material 3.
-- **Room 2.8.4** via KSP, with the bundled SQLite driver. Under AGP 9's `com.android.kotlin.multiplatform.library` DSL the Android KSP configuration is `kspAndroid` (not `ksp`) — see the `dependencies` block in `shared/build.gradle.kts`.
-- **DataStore Preferences 1.2.0**, Navigation Compose 2.9.1, kotlinx-serialization 1.9.0.
-- Release builds are minified and resource-shrunk (R8).
+- **Strings**: always `stringResource(Res.string.x)`.
